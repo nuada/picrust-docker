@@ -1,0 +1,49 @@
+---
+- hosts: localhost
+  connection: local
+
+  roles:
+    - role: nuada.dockerize
+      timezone: "Europe/Warsaw"
+
+  tasks:
+    - name: group omicron
+      group: name=omicron gid=1000
+
+    - name: default user
+      user: name=omicron uid=1000 group=omicron groups=sudo shell=/bin/bash
+
+    - name: ssh dir
+      file: path=/home/omicron/.ssh state=directory
+         owner=omicron group=omicron mode=0700
+
+    - name: allow omicron user to use passwordless sudo
+      copy: dest=/etc/sudoers.d/90-omicron content="omicron ALL=(ALL) NOPASSWD:ALL"
+        owner=root group=root mode=0440
+
+    - name: install common linux tools
+      apt: name={{ item }}
+      with_items:
+        - bsdmainutils
+        - byobu
+        - cython
+        - git
+        - python-pip
+        - unzip
+        - vim
+        - wget
+
+    - name: install picrust deps
+      pip: name=numpy version='1.5.1'
+
+    - name: create temp dir
+      file: path=/tmp/ansible state=directory
+
+    - name: get source
+      git: repo=git://github.com/picrust/picrust.git dest=/tmp/ansible/picrust accept_hostkey=yes
+
+    - name: install picrust
+      shell: python setup.py build install chdir=/tmp/ansible/picrust
+
+    - name: cleanup temp
+      file: path=/tmp/ansible state=absent
